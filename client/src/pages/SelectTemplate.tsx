@@ -37,24 +37,27 @@ const SelectTemplate = () => {
                 if (!response.ok) {
                     throw new Error(`Failed to load templates: ${response.statusText}`);
                 }
-                const data: TemplatesJson = await response.json();
+                const data: any = await response.json(); // Use any to be flexible with schema
 
                 // Flatten and Map
-                const allTemplates: Template[] = Object.values(data).flat().map(t => ({
+                const allTemplates: Template[] = Object.values(data).flat().map((t: any) => ({
                     id: t.id,
                     name: t.name,
                     category: t.category,
-                    // Defaulting to Portrait as it is missing in the JSON, 
-                    // in a real scenario we would read this from the JSON
-                    orientation: 'Portrait',
-                    previewImage: t.path,
-                    templatePath: t.path // Using image path as base for template path
+                    orientation: t.orientation || 'Portrait',
+                    previewImage: t.previewImage || t.path, // Use previewImage if available, fallback to path
+                    templatePath: t.templatePath || t.path, // Use structured path if available, fallback to path
+                    dimensions: t.dimensions
                 }));
 
+                console.log(`Loaded ${allTemplates.length} templates`);
+                if (allTemplates.length === 0) {
+                    console.warn("Registry loaded but contained no templates.");
+                }
                 setTemplates(allTemplates);
             } catch (err) {
                 console.error("Error loading templates:", err);
-                setError(err instanceof Error ? err.message : "Unknown error");
+                setError(err instanceof Error ? err.message : "Failed to load template registry");
             } finally {
                 setLoading(false);
             }
@@ -115,8 +118,8 @@ const SelectTemplate = () => {
                                 key={cat}
                                 onClick={() => setCategoryFilter(cat)}
                                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap ${categoryFilter === cat
-                                        ? 'bg-white text-gray-900 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
                                     }`}
                             >
                                 {cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -131,8 +134,8 @@ const SelectTemplate = () => {
                                 key={orient}
                                 onClick={() => setOrientationFilter(orient)}
                                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${orientationFilter === orient
-                                        ? 'bg-white text-gray-900 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-700'
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
                                     }`}
                             >
                                 {orient}
@@ -153,7 +156,9 @@ const SelectTemplate = () => {
                     <Icon icon={Layout} className="mx-auto text-gray-300 mb-4" size={48} />
                     <h3 className="text-lg font-medium text-gray-900">No templates found</h3>
                     <p className="text-gray-500 max-w-md mx-auto mt-2">
-                        We couldn't find any templates matching your filters. Try adjusting your search or category.
+                        {templates.length === 0
+                            ? "No templates available. Add templates to /public/templates and run the registry script."
+                            : "We couldn't find any templates matching your filters."}
                     </p>
                     <Button
                         variant="link"

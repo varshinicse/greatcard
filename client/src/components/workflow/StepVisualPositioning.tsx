@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/Badge";
 import { useEditorStore, Layer } from "@/store/editorStore";
 
 // New Components
+// New Components
 import { VisualCanvas } from "@/components/editor/VisualCanvas";
-import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
+import { FloatingToolbar } from "@/components/editor/FloatingToolbar";
 import { LayerListPanel } from "@/components/editor/LayerListPanel";
 
 // Default layers to start with if none exist
@@ -66,7 +67,7 @@ const StepVisualPositioning = ({ onNext, onBack }: StepVisualPositioningProps) =
     // Global Store
     const {
         layoutLayers, setLayoutLayers,
-        selectedTemplate
+        selectedTemplate, inputData
     } = useEditorStore();
 
     const [zoom, setZoom] = useState(50); // Start at 50% for visibility
@@ -94,9 +95,29 @@ const StepVisualPositioning = ({ onNext, onBack }: StepVisualPositioningProps) =
     // Initialize Layers
     useEffect(() => {
         if (layoutLayers.length === 0) {
-            setLayoutLayers(DEFAULT_LAYERS);
+            let initialLayers = JSON.parse(JSON.stringify(DEFAULT_LAYERS));
+
+            // In Manual Mode: Pre-fill placeholders with actual values
+            // allowing the user to simply edit the text directly.
+            if (inputData.mode === 'manual' && inputData.manualData) {
+                initialLayers = initialLayers.map((layer: Layer) => {
+                    if (layer.type === 'text' && layer.content) {
+                        const newContent = layer.content.replace(/\{(\w+)\}/g, (match, key) => {
+                            // Map {Name} -> manualData.name (case insensitive lookup)
+                            const dataKey = Object.keys(inputData.manualData).find(k => k.toLowerCase() === key.toLowerCase());
+                            // @ts-ignore
+                            const val = dataKey ? inputData.manualData[dataKey] : '';
+                            return val || match;
+                        });
+                        return { ...layer, content: newContent };
+                    }
+                    return layer;
+                });
+            }
+
+            setLayoutLayers(initialLayers);
         }
-    }, [layoutLayers.length, setLayoutLayers]);
+    }, [layoutLayers.length, setLayoutLayers, inputData]);
 
     const handleContinue = () => {
         onNext({ layers: layoutLayers });
@@ -145,18 +166,24 @@ const StepVisualPositioning = ({ onNext, onBack }: StepVisualPositioningProps) =
                 )}
 
                 {/* CANVAS AREA (Scrollable) */}
-                <div className="flex-1 bg-gray-200/50 overflow-auto relative flex items-center justify-center p-20 cursor-move border-l border-r border-gray-200 shadow-inner">
-                    <VisualCanvas
-                        width={canvasDims.width}
-                        height={canvasDims.height}
-                        zoom={zoom}
-                        backgroundUrl={backgroundUrl}
-                    />
+                <div className="flex-1 bg-gray-100/50 overflow-hidden relative flex flex-col items-center justify-center p-8 border-l border-gray-200">
+
+                    {/* Floating Toolbar - Absolute to this container so it stays on top of canvas */}
+                    <div className="absolute top-4 z-50">
+                        <FloatingToolbar />
+                    </div>
+
+                    <div className="overflow-auto w-full h-full flex items-center justify-center p-20 cursor-move relative">
+                        <VisualCanvas
+                            width={canvasDims.width}
+                            height={canvasDims.height}
+                            zoom={zoom}
+                            backgroundUrl={backgroundUrl}
+                        />
+                    </div>
                 </div>
 
-                {/* PROPERTIES PANEL (Fixed Right) */}
-                <PropertiesPanel />
-
+                {/* Removed PropertiesPanel - It is now the FloatingToolbar */}
             </div>
         </div>
     );

@@ -1,4 +1,4 @@
-// import { useRef, useEffect } from 'react'; // Unused
+import { useState } from 'react';
 import { useEditorStore, Layer } from "@/store/editorStore";
 
 interface VisualCanvasProps {
@@ -14,6 +14,8 @@ export const VisualCanvas = ({ width, height, zoom, backgroundUrl, readOnly = fa
         layoutLayers, selectedId, selectElement,
         updateLayoutLayer, inputData
     } = useEditorStore();
+
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     // Helper to resolve dynamic content (e.g. "Hello {Name}")
     const resolveContent = (layer: Layer) => {
@@ -161,23 +163,53 @@ export const VisualCanvas = ({ width, height, zoom, backgroundUrl, readOnly = fa
                             />
                         ) : (
                             // Text - Apply typography styles strictly here to allow accurate inheritance/rendering
-                            <span
-                                className="block w-full h-full"
-                                style={{
-                                    fontFamily: layer.style.font,
-                                    fontSize: `${layer.style.size}px`,
-                                    fontWeight: layer.style.weight,
-                                    fontStyle: layer.style.fontStyle,
-                                    textDecoration: layer.style.textDecoration,
-                                    color: isPlaceholder ? '#9ca3af' : (layer.style.color || '#000'),
-                                    textAlign: layer.style.align,
-                                    whiteSpace: 'pre-wrap',
-                                    overflowWrap: 'break-word',
-                                    wordBreak: 'break-word'
-                                }}
-                            >
-                                {content}
-                            </span>
+                            // Text - Apply typography styles strictly here to allow accurate inheritance/rendering
+                            (editingId === layer.id && !readOnly ? (
+                                <textarea
+                                    autoFocus
+                                    className="w-full h-full bg-transparent outline-none resize-none overflow-hidden m-0 p-0 border-none ring-0 active:outline-none focus:outline-none"
+                                    style={{
+                                        fontFamily: layer.style.font,
+                                        fontSize: `${layer.style.size}px`,
+                                        fontWeight: layer.style.weight,
+                                        fontStyle: layer.style.fontStyle,
+                                        textDecoration: layer.style.textDecoration,
+                                        color: layer.style.color || '#000',
+                                        textAlign: layer.style.align,
+                                        lineHeight: layer.style.lineHeight || 1.2,
+                                    }}
+                                    value={layer.content}
+                                    onChange={(e) => updateLayoutLayer(layer.id, { content: e.target.value })}
+                                    onBlur={() => setEditingId(null)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                />
+                            ) : (
+                                <span
+                                    className="block w-full h-full"
+                                    onDoubleClick={(e) => {
+                                        if (!readOnly && !layer.locked) {
+                                            e.stopPropagation();
+                                            setEditingId(layer.id);
+                                        }
+                                    }}
+                                    style={{
+                                        fontFamily: layer.style.font,
+                                        fontSize: `${layer.style.size}px`,
+                                        fontWeight: layer.style.weight,
+                                        fontStyle: layer.style.fontStyle,
+                                        textDecoration: layer.style.textDecoration,
+                                        color: isPlaceholder ? '#9ca3af' : (layer.style.color || '#000'),
+                                        textAlign: layer.style.align,
+                                        whiteSpace: 'pre-wrap',
+                                        overflowWrap: 'break-word',
+                                        wordBreak: 'break-word',
+                                        lineHeight: layer.style.lineHeight || 1.2,
+                                    }}
+                                >
+                                    {content}
+                                </span>
+                            ))
                         )}
 
                         {/* Active Selection Handles (Visual Only for now) - Hide in ReadOnly */}
